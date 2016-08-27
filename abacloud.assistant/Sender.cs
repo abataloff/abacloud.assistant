@@ -15,18 +15,26 @@ namespace abacloud.assistant
 
         public string SendFile(string a_fileName)
         {
-            string _retVal;
-
             var _stream = File.Open(a_fileName, FileMode.Open, FileAccess.Read);
             string _errorMessage;
-            _retVal = client.SendContent(_stream, out _errorMessage);
-            if (string.IsNullOrEmpty(_retVal))
+            var _contentGuid = client.SendContent(_stream, out _errorMessage);
+            _stream.Close();
+
+            if (string.IsNullOrEmpty(_contentGuid))
             {
                 throw new Exception(_errorMessage);
             }
-            _stream.Close();
 
-            return _retVal;
+            foreach (var _part   in a_fileName.Split(Path.PathSeparator))
+            {
+                var _wasSet = client.SetTagForContent(_contentGuid, (new FileInfo(_part)).Name, out _errorMessage);
+                if (!_wasSet)
+                {
+                    throw new Exception(_errorMessage);
+                }
+            }
+
+            return _contentGuid;
         }
 
         public Dictionary<string,string> SendDirectory(string a_path)
@@ -53,6 +61,15 @@ namespace abacloud.assistant
             }
 
             return _retDic;
+        }
+
+        internal bool GetFile(string a_guid, string a_fileName)
+        {
+            var _file = File.Create(a_fileName);
+            string _errorMessage;
+            var _wasGet = client.GetContent(a_guid, _file, out _errorMessage);
+            _file.Close();
+            return _wasGet;
         }
     }
 }
